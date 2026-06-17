@@ -12,6 +12,8 @@
     "notification:default",
     "process:allow-exit",
     "updater:default",
-    "positioner:default"
+    "positioner:default",
+    "opener:default",
+    "opener:allow-open-url"
   ]
 }

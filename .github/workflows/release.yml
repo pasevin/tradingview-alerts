@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri -> target
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Import Apple Developer certificate
+        if: env.APPLE_CERTIFICATE != ''
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          echo -n "$APPLE_CERTIFICATE" | base64 --decode -o $RUNNER_TEMP/certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security import $RUNNER_TEMP/certificate.p12 -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k $KEYCHAIN_PATH
+          security list-keychain -d user -s $KEYCHAIN_PATH
+          security find-identity -v -p codesigning $KEYCHAIN_PATH
+
+      - name: Build universal macOS app
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          cd apps/desktop
+          pnpm exec tauri build --target universal-apple-darwin
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p dist-artifacts
+          find apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/dmg \
+            -name "*.dmg" -exec cp {} dist-artifacts/ \;
+          find apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos \
+            -name "*.tar.gz" -exec cp {} dist-artifacts/ \;
+          find apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos \
+            -name "*.tar.gz.sig" -exec cp {} dist-artifacts/ \;
+          ls -lh dist-artifacts/
+
+      - name: Generate latest.json
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          TGZ_FILE=$(find dist-artifacts -name "*.tar.gz" | head -1)
+          TGZ_NAME=$(basename "$TGZ_FILE")
+          SIG=$(cat dist-artifacts/*.tar.gz.sig)
+          cat > dist-artifacts/latest.json <<EOF
+          {
+            "version": "$VERSION",
+            "notes": "See https://github.com/${{ github.repository }}/releases/tag/v$VERSION",
+            "pub_date": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "platforms": {
+              "darwin-universal": {
+                "url": "https://github.com/${{ github.repository }}/releases/download/v$VERSION/$TGZ_NAME",
+                "signature": "$SIG"
+              },
+              "darwin-aarch64": {
+                "url": "https://github.com/${{ github.repository }}/releases/download/v$VERSION/$TGZ_NAME",
+                "signature": "$SIG"
+              },
+              "darwin-x86_64": {
+                "url": "https://github.com/${{ github.repository }}/releases/download/v$VERSION/$TGZ_NAME",
+                "signature": "$SIG"
+              }
+            }
+          }
+          EOF
+          cat dist-artifacts/latest.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist-artifacts/*
+          generate_release_notes: true
+          draft: false

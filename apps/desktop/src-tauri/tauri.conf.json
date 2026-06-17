@@ -31,12 +31,13 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["app", "dmg", "updater"],
+    "targets": ["app", "dmg"],
+    "createUpdaterArtifacts": true,
     "icon": ["icons/icon.icns", "icons/icon.png"],
     "macOS": {
       "minimumSystemVersion": "12.0",
       "entitlements": "Entitlements.plist",
-      "signingIdentity": "-"
+      "signingIdentity": null
     }
   },
   "plugins": {
@@ -46,7 +47,7 @@
         "https://github.com/pasevin/tradingview-alerts/releases/latest/download/latest.json"
       ],
       "dialog": true,
-      "pubkey": "REPLACE_WITH_TAURI_SIGNER_PUBKEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEE2OENGOUQ4MjM4Q0I3QjIKUldTeXQ0d2oyUG1NcGlZbWNCYTFjcUtLT0Ewb1ljeGpreDlZYzRwS1p4L2txK0UxTVRtWXlYVWMK"
     }
   }
 }
