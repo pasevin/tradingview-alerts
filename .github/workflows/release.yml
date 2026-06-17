@@ -56,18 +56,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd apps/desktop
-          # Override signingIdentity with real cert when secret is present.
           SIGN_IDENTITY="${{ secrets.APPLE_SIGNING_IDENTITY }}"
           if [ -n "$SIGN_IDENTITY" ]; then
-            pnpm exec tauri build --target universal-apple-darwin \
-              --config "{\"bundle\":{\"macOS\":{\"signingIdentity\":\"$SIGN_IDENTITY\"}}}"
+            # Full signed + notarized build.
+            export APPLE_SIGNING_IDENTITY="$SIGN_IDENTITY"
+            export APPLE_ID="${{ secrets.APPLE_ID }}"
+            export APPLE_PASSWORD="${{ secrets.APPLE_PASSWORD }}"
+            export APPLE_TEAM_ID="${{ secrets.APPLE_TEAM_ID }}"
+            pnpm exec tauri build --target universal-apple-darwin
           else
-            # Fall back to ad-hoc signing ("-") — no Gatekeeper but builds cleanly.
+            # Ad-hoc signing only — no notarization (no Apple Developer account configured).
             pnpm exec tauri build --target universal-apple-darwin
           fi
 
