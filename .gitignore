@@ -1,0 +1,30 @@
+node_modules/
+dist/
+.turbo/
+*.log
+*.tsbuildinfo
+
+# Tauri / Rust build artifacts
+apps/desktop/src-tauri/target/
+apps/desktop/src-tauri/gen/
+
+# Relay data
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+relay.db*
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# macOS
+.DS_Store
+
+# Signing material — never commit
+*.p12
+*.cer
+*.provisionprofile
+AuthKey_*.p8

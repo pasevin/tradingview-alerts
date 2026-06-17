@@ -1,0 +1,22 @@
+name: deploy-relay
+
+# Deploys the hosted relay to Fly.io on pushes to main that touch relay code.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/relay/**"
+      - "packages/protocol/**"
+      - ".github/workflows/deploy-relay.yml"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    concurrency: deploy-relay
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        run: flyctl deploy --config apps/relay/fly.toml --ha=false
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

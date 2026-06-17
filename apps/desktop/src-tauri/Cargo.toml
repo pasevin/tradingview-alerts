@@ -1,0 +1,23 @@
+# LSUIElement makes this a menu-bar-only (accessory) app: no Dock icon, no app
+# menu, no window on launch — and crucially no Dock flash that app.dock.hide()
+# would still cause at startup.
+[package]
+name = "tvalert-desktop"
+version = "1.0.0"
+edition = "2021"
+
+[lib]
+name = "tvalert_desktop_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+tauri-plugin-notification = "2"
+tauri-plugin-process = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-positioner = { version = "2", features = ["tray-icon"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

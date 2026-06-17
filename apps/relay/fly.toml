@@ -1,0 +1,30 @@
+# Fly.io deployment for the hosted relay.
+# Single always-on machine: persistent WebSockets + SQLite-on-volume need it.
+app = "tvalert-relay"
+primary_region = "iad"
+
+[build]
+  dockerfile = "apps/relay/Dockerfile"
+
+[env]
+  PORT = "8787"
+  DB_PATH = "/data/relay.db"
+  PUBLIC_BASE_URL = "https://tvalert-relay.fly.dev"
+  REQUIRE_AUTH = "true"
+  PAYMENT_PROVIDER = "stripe"
+
+[[mounts]]
+  source = "tvalert_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8787
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 1000
+    soft_limit = 800

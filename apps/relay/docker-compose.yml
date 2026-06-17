@@ -1,0 +1,20 @@
+# First-class self-host: free tier, no accounts, no billing, unlimited.
+# `docker compose up` then point the app's relay URL at http://localhost:8787.
+services:
+  relay:
+    build:
+      context: ../..
+      dockerfile: apps/relay/Dockerfile
+    ports:
+      - "8787:8787"
+    environment:
+      PORT: "8787"
+      DB_PATH: "/data/relay.db"
+      PUBLIC_BASE_URL: "http://localhost:8787"
+      REQUIRE_AUTH: "false"
+    volumes:
+      - relay_data:/data
+    restart: unless-stopped
+
+volumes:
+  relay_data:

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- WKWebView JITs JavaScript; without these the app crashes immediately
+       after notarization even though an unsigned local build runs fine. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <!-- Outbound HTTPS/WSS to the relay. -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+</dict>
+</plist>

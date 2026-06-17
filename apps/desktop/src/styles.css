@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+/* Native menu-bar popover feel: translucent vibrancy-style backdrop,
+   system font stack, rounded card matching macOS popovers. */
+:root {
+  color-scheme: light dark;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui,
+    sans-serif;
+}
+
+html,
+body {
+  margin: 0;
+  background: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#root {
+  height: 100vh;
+}

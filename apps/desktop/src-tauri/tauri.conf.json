@@ -1,0 +1,52 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "TradingView Alerts",
+  "version": "1.0.0",
+  "identifier": "app.tvalert.desktop",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "macOSPrivateApi": true,
+    "windows": [
+      {
+        "label": "popover",
+        "title": "TradingView Alerts",
+        "width": 380,
+        "height": 520,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' https: wss:; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "updater"],
+    "icon": ["icons/icon.icns", "icons/icon.png"],
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "entitlements": "Entitlements.plist",
+      "signingIdentity": "-"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/pasevin/tvalert-clone/releases/latest/download/latest.json"
+      ],
+      "dialog": true,
+      "pubkey": "REPLACE_WITH_TAURI_SIGNER_PUBKEY"
+    }
+  }
+}

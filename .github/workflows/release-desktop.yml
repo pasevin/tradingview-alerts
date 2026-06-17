@@ -1,0 +1,59 @@
+name: release-desktop
+
+# Builds, signs, and notarizes the macOS .dmg on a tagged release, then
+# publishes a signed latest.json the in-app updater reads. MUST run on macOS.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-macos:
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust (Apple Silicon + Intel targets)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace packages
+        run: pnpm --filter @tvalert/protocol --filter @tvalert/core build
+
+      - name: Build, sign, notarize, and publish
+        uses: tauri-apps/tauri-action@v0
+        env:
+          # App signing (Developer ID Application cert, base64-encoded).
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # Notarization via App Store Connect API key (notarytool).
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          APPLE_API_KEY_PATH: ${{ secrets.APPLE_API_KEY_PATH }}
+          # Tauri updater signing keypair.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: apps/desktop
+          tagName: ${{ github.ref_name }}
+          releaseName: "TradingView Alerts ${{ github.ref_name }}"
+          releaseDraft: true
+          prerelease: false
+          args: --target universal-apple-darwin
