@@ -1,5 +1,5 @@
 {
-  "name": "tvalert-clone",
+  "name": "tradingview-alerts",
   "version": "1.0.0",
   "private": true,
   "description": "Native macOS menu-bar app for TradingView alerts — Tauri 2 desktop + self-hostable relay. Open-core, no proprietary runtime.",
