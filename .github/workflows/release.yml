@@ -62,7 +62,13 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           cd apps/desktop
-          pnpm exec tauri build --target universal-apple-darwin
+          # Only pass signingIdentity when the secret is actually set.
+          if [ -n "$APPLE_SIGNING_IDENTITY" ]; then
+            pnpm exec tauri build --target universal-apple-darwin
+          else
+            pnpm exec tauri build --target universal-apple-darwin \
+              --config '{"bundle":{"macOS":{"signingIdentity":null}}}'
+          fi
 
       - name: Collect artifacts
         run: |
