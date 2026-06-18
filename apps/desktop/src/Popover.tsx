@@ -298,6 +298,12 @@ function MainView({
         />
         <div className="border-t border-white/8" />
         <ActionRow
+          icon={<Icon name="arrow.up.circle" className="text-white/50" />}
+          label={updateState === "checking" ? "Checking…" : "Check for Updates…"}
+          onClick={() => api.checkForUpdates()}
+        />
+        <div className="border-t border-white/8" />
+        <ActionRow
           icon={<Icon name="power" className="text-white/50" />}
           label="Quit TradingView Alerts"
           shortcut="⌘Q"
@@ -399,6 +405,7 @@ type IconName =
   | "gear"
   | "power"
   | "arrow.left"
+  | "arrow.up.circle"
   | "checkmark.circle";
 
 function Icon({
@@ -475,6 +482,13 @@ function Icon({
       <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
         <path d="M9 7H3" />
         <path d="M6 4l-3 3 3 3" />
+      </svg>
+    ),
+    "arrow.up.circle": (
+      <svg viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="7" cy="7" r="5.5" />
+        <path d="M7 9.5V5" />
+        <path d="M5 7l2-2 2 2" />
       </svg>
     ),
     "checkmark.circle": (
