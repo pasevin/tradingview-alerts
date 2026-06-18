@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "TradingView Alerts",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "identifier": "app.tvalert.desktop",
   "build": {
     "frontendDist": "../dist",
@@ -37,14 +37,7 @@
     "macOS": {
       "minimumSystemVersion": "12.0",
       "entitlements": "Entitlements.plist",
-      "signingIdentity": "-",
-      "dmg": {
-        "background": "dmg-background.png",
-        "windowSize": { "width": 540, "height": 300 },
-        "windowPosition": { "x": 400, "y": 200 },
-        "appPosition": { "x": 150, "y": 130 },
-        "applicationFolderPosition": { "x": 390, "y": 130 }
-      }
+      "signingIdentity": "-"
     }
   },
   "plugins": {
