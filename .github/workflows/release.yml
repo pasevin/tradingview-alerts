@@ -35,7 +35,7 @@ jobs:
         run: pnpm install
 
       - name: Install dmgbuild
-        run: pip3 install dmgbuild ds_store pyobjc
+        run: pip3 install --break-system-packages dmgbuild ds_store pyobjc
 
       - name: Import Apple Developer certificate
         if: env.APPLE_CERTIFICATE != ''
