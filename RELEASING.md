@@ -90,7 +90,7 @@ https://github.com/pasevin/tradingview-alerts/releases/latest
 
 Or add a direct DMG link on your landing page:
 ```
-https://github.com/pasevin/tradingview-alerts/releases/latest/download/TradingView.Alerts_VERSION_universal.dmg
+https://github.com/pasevin/tradingview-alerts/releases/latest/download/TradingView%20Alerts_1.0.6_universal.dmg
 ```
 
 For the smoothest experience, link directly to the `.dmg`. Users:

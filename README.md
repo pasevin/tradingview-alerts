@@ -34,22 +34,21 @@ Stripe      ──webhook─────▶  relay  (flips Pro entitlement, push
 ## Monorepo layout
 
 ```
-packages/
-  protocol/   Zod schemas — the single source of truth for the wire format
-  core/       @tvalert/core: a Glaze-shaped facade over Tauri 2 (no lock-in)
 apps/
-  desktop/    Tauri 2 menu-bar app (React 19 + Radix + Tailwind v4)
+  desktop/    Tauri 2 menu-bar app (Rust backend + React 19 + Radix + Tailwind v4)
   relay/      Fastify + ws + better-sqlite3 + Stripe (self-host or hosted)
+packages/
+  protocol/   Zod schemas for the relay wire format
 ```
 
 ## Develop
 
 ```bash
 pnpm install
-pnpm --filter @tvalert/protocol --filter @tvalert/core build
-pnpm type-check                      # whole workspace
-pnpm --filter @tvalert/relay dev     # run the relay locally (self-host mode)
-pnpm --filter @tvalert/desktop tauri dev   # run the app (requires macOS + Rust)
+pnpm --filter @tvalert/protocol build   # only needed for relay dev
+pnpm type-check                          # whole workspace
+pnpm --filter @tvalert/relay dev         # run the relay locally (self-host mode)
+pnpm --filter @tvalert/desktop tauri dev # run the app (requires macOS + Rust)
 ```
 
 ## Self-host the relay (free, no account)
