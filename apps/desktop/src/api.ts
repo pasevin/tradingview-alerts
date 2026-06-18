@@ -73,6 +73,8 @@ export const api = {
   openUrl: (url: string) => invoke<void>("open_url", { url }),
   quit: () => invoke<void>("quit"),
   playSound: (name: string) => invoke<void>("play_sound", { name }),
+  checkForUpdates: () => invoke<void>("check_for_updates"),
+  installUpdate: () => invoke<void>("install_update"),
 
   // Relay / auth / billing
   relayGetStatus: () => invoke<RelayStatus>("relay_get_status"),

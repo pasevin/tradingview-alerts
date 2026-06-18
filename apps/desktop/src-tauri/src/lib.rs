@@ -14,6 +14,7 @@ use tauri::{
     AppHandle, Emitter, Listener, Manager,
 };
 use tauri_plugin_positioner::{Position, WindowExt};
+use tauri_plugin_updater::UpdaterExt;
 use window_vibrancy::{apply_vibrancy, NSVisualEffectMaterial, NSVisualEffectState};
 
 /// Shared tokio runtime for relay async work (the webhook server owns its own).
@@ -150,6 +151,47 @@ fn quit(app: AppHandle) {
 #[tauri::command]
 fn play_sound(name: String) {
     webhook::play_sound(&name);
+}
+
+/// Check for updates and emit an event with the result.
+/// Called from both the tray menu and the `check_for_updates` command.
+async fn run_update_check(app: &AppHandle) {
+    let _ = app.emit("update:checking", ());
+    match app.updater() {
+        Ok(updater) => match updater.check().await {
+            Ok(Some(update)) => {
+                let _ = app.emit("update:available", serde_json::json!({
+                    "version": update.version,
+                    "currentVersion": update.current_version,
+                    "body": update.body,
+                }));
+            }
+            Ok(None) => {
+                let _ = app.emit("update:not-available", ());
+            }
+            Err(e) => {
+                let _ = app.emit("update:error", e.to_string());
+            }
+        },
+        Err(e) => {
+            let _ = app.emit("update:error", e.to_string());
+        }
+    }
+}
+
+#[tauri::command]
+async fn check_for_updates(app: AppHandle) {
+    run_update_check(&app).await;
+}
+
+#[tauri::command]
+async fn install_update(app: AppHandle) {
+    let _ = app.emit("update:installing", ());
+    if let Ok(updater) = app.updater() {
+        if let Ok(Some(update)) = updater.check().await {
+            let _ = update.download_and_install(|_, _| {}, || {}).await;
+        }
+    }
 }
 
 // ── Relay / auth / billing commands ───────────────────────────────────
@@ -292,7 +334,9 @@ fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
     let quit = MenuItem::with_id(app, "quit", "Quit TradingView Alerts", true, None::<&str>)?;
     let settings_item =
         MenuItem::with_id(app, "settings", "Settings…", true, Some("Cmd+,"))?;
-    let menu = Menu::with_items(app, &[&settings_item, &quit])?;
+    let check_updates_item =
+        MenuItem::with_id(app, "check_updates", "Check for Updates…", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&settings_item, &check_updates_item, &quit])?;
 
     // SF Symbol "bell" rendered at 44px via Swift — white, no template flag.
     let tray_icon = tauri::image::Image::from_bytes(TRAY_ICON)
@@ -306,11 +350,14 @@ fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
         .on_menu_event(|app, event| match event.id.as_ref() {
             "quit" => app.exit(0),
             "settings" => {
-                if let Some(win) = app.get_webview_window("popover") {
-                    let _ = win.show();
-                    let _ = win.set_focus();
-                    let _ = win.emit("navigate", "settings");
-                }
+                toggle_popover(app);
+                let _ = app.emit("navigate", "settings");
+            }
+            "check_updates" => {
+                let app2 = app.clone();
+                tauri::async_runtime::spawn(async move {
+                    run_update_check(&app2).await;
+                });
             }
             _ => {}
         })
@@ -347,6 +394,8 @@ pub fn run() {
             open_url,
             quit,
             play_sound,
+            check_for_updates,
+            install_update,
             relay_get_status,
             auth_get_status,
             relay_set_enabled,

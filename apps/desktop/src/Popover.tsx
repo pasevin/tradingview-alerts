@@ -42,6 +42,8 @@ export function Popover(): JSX.Element {
   const [status, setStatus] = useState<ServerStatus | null>(null);
   const [relay, setRelay] = useState<RelayStatus | null>(null);
   const [auth, setAuth] = useState<AuthStatus | null>(null);
+  const [updateInfo, setUpdateInfo] = useState<{ version: string; body?: string } | null>(null);
+  const [updateState, setUpdateState] = useState<"idle" | "checking" | "installing">("idle");
 
   useEffect(() => {
     api.listAlerts().then(setAlerts);
@@ -60,6 +62,13 @@ export function Popover(): JSX.Element {
       onEvent<RelayStatus>("relay:status-changed", setRelay),
       onEvent<AuthStatus>("auth:changed", setAuth),
       onEvent<string>("navigate", (v) => setView(v === "settings" ? "settings" : "main")),
+      onEvent<void>("update:checking", () => setUpdateState("checking")),
+      onEvent<void>("update:not-available", () => setUpdateState("idle")),
+      onEvent<void>("update:installing", () => setUpdateState("installing")),
+      onEvent<{ version: string; body?: string }>("update:available", (info) => {
+        setUpdateInfo(info);
+        setUpdateState("idle");
+      }),
     ];
     return () => unsubs.forEach((p) => p.then((fn) => fn()));
   }, []);
@@ -74,6 +83,9 @@ export function Popover(): JSX.Element {
           status={status}
           relay={relay}
           auth={auth}
+          updateInfo={updateInfo}
+          updateState={updateState}
+          onInstallUpdate={() => { setUpdateState("installing"); api.installUpdate(); }}
           onSettings={() => setView("settings")}
         />
       ) : (
@@ -101,6 +113,9 @@ function MainView({
   status,
   relay,
   auth,
+  updateInfo,
+  updateState,
+  onInstallUpdate,
   onSettings,
 }: {
   alerts: Alert[];
@@ -109,6 +124,9 @@ function MainView({
   status: ServerStatus | null;
   relay: RelayStatus | null;
   auth: AuthStatus | null;
+  updateInfo: { version: string; body?: string } | null;
+  updateState: "idle" | "checking" | "installing";
+  onInstallUpdate: () => void;
   onSettings: () => void;
 }): JSX.Element {
   const [, setLogoTick] = useState(0);
@@ -186,6 +204,25 @@ function MainView({
           </div>
         )}
       </div>
+
+      {/* ── Update banner ── */}
+      {updateInfo && (
+        <div className="flex items-center justify-between border-b border-white/8 bg-blue-500/10 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <Icon name="arrow.left" className="rotate-90 text-blue-400" />
+            <span className="text-[12px] text-blue-300">
+              v{updateInfo.version} available
+            </span>
+          </div>
+          <button
+            onClick={onInstallUpdate}
+            disabled={updateState === "installing"}
+            className="rounded bg-blue-500/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+          >
+            {updateState === "installing" ? "Installing…" : "Update Now"}
+          </button>
+        </div>
+      )}
 
       {/* ── Alert list ── */}
       <div className="flex-1 overflow-y-auto">
