@@ -5,8 +5,12 @@ alerts** fire — native notification, menu-bar badge, sound, and a dropdown of
 recent alerts. Built on open technology (Tauri 2 + a self-hostable relay), with
 no proprietary runtime lock-in.
 
-![Popover](docs/screenshot-popover.png)
-![Settings](docs/screenshot-settings.png)
+<table>
+  <tr>
+    <td><img src="docs/screenshot-popover.png" alt="Popover" width="380"/></td>
+    <td><img src="docs/screenshot-settings.png" alt="Settings" width="380"/></td>
+  </tr>
+</table>
 
 TradingView sends alerts as webhooks from its cloud, so they need a public URL
 to reach your Mac. Three ways to handle that:
