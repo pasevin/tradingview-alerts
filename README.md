@@ -5,6 +5,8 @@ alerts** fire — native notification, menu-bar badge, sound, and a dropdown of
 recent alerts. Built on open technology (Tauri 2 + a self-hostable relay), with
 no proprietary runtime lock-in.
 
+**🌐 [tv-alerts.com](https://tv-alerts.com)** — download, pricing, and setup.
+
 <table>
   <tr>
     <td><img src="docs/screenshot-popover.png" alt="Popover" width="380"/></td>
