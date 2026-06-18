@@ -240,22 +240,20 @@ fn billing_open_portal(
 }
 
 // ── Tray icon helpers ─────────────────────────────────────────────────
-fn tray_icon_path(app: &AppHandle, name: &str) -> std::path::PathBuf {
-    let candidates = [
-        std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("icons").join(name),
-        app.path().resource_dir().unwrap_or_default().join(name),
-    ];
-    for p in &candidates {
-        if p.exists() { return p.clone(); }
-    }
-    candidates[0].clone()
+// ── Tray icon images embedded at compile time ─────────────────────────
+// include_bytes! guarantees correct path in both dev and release bundle.
+static TRAY_ICON: &[u8] = include_bytes!("../icons/tray-icon.png");
+static TRAY_ICON_BADGE: &[u8] = include_bytes!("../icons/tray-icon-badge.png");
+
+fn load_tray_icon(_app: &AppHandle, name: &str) -> Option<tauri::image::Image<'static>> {
+    let bytes: &'static [u8] = match name {
+        "tray-icon-badge.png" => TRAY_ICON_BADGE,
+        _ => TRAY_ICON,
+    };
+    tauri::image::Image::from_bytes(bytes).ok()
 }
 
-fn load_tray_icon(app: &AppHandle, name: &str) -> Option<tauri::image::Image<'static>> {
-    tauri::image::Image::from_path(tray_icon_path(app, name)).ok()
-}
 
-// ── Tray badge / icon refresh ─────────────────────────────────────────
 pub fn refresh_tray(app: &AppHandle) {
     let store = app.state::<Arc<Store>>();
     let settings = store.get_settings();
@@ -297,8 +295,8 @@ fn build_tray(app: &AppHandle) -> tauri::Result<TrayIcon> {
     let menu = Menu::with_items(app, &[&settings_item, &quit])?;
 
     // SF Symbol "bell" rendered at 44px via Swift — white, no template flag.
-    let tray_icon = load_tray_icon(app, "tray-icon.png")
-        .unwrap_or_else(|| app.default_window_icon().unwrap().clone());
+    let tray_icon = tauri::image::Image::from_bytes(TRAY_ICON)
+        .unwrap_or_else(|_| app.default_window_icon().unwrap().clone());
 
     TrayIconBuilder::with_id("main")
         .icon(tray_icon)
