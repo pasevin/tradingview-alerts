@@ -3,7 +3,7 @@
 # would still cause at startup.
 [package]
 name = "tvalert-desktop"
-version = "1.0.5"
+version = "1.0.6"
 edition = "2021"
 
 [lib]

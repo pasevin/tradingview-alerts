@@ -34,6 +34,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Install dmgbuild
+        run: pip3 install dmgbuild ds_store pyobjc
+
       - name: Import Apple Developer certificate
         if: env.APPLE_CERTIFICATE != ''
         env:
@@ -51,10 +54,7 @@ jobs:
           security list-keychain -d user -s $KEYCHAIN_PATH
           security find-identity -v -p codesigning $KEYCHAIN_PATH
 
-      - name: Install create-dmg
-        run: brew install create-dmg
-
-      - name: Build universal macOS app
+      - name: Build universal macOS app (no DMG)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -62,16 +62,67 @@ jobs:
           cd apps/desktop
           SIGN_IDENTITY="${{ secrets.APPLE_SIGNING_IDENTITY }}"
           if [ -n "$SIGN_IDENTITY" ]; then
-            # Full signed + notarized build.
             export APPLE_SIGNING_IDENTITY="$SIGN_IDENTITY"
             export APPLE_ID="${{ secrets.APPLE_ID }}"
             export APPLE_PASSWORD="${{ secrets.APPLE_PASSWORD }}"
             export APPLE_TEAM_ID="${{ secrets.APPLE_TEAM_ID }}"
-            pnpm exec tauri build --target universal-apple-darwin
-          else
-            # Ad-hoc signing only — no notarization (no Apple Developer account configured).
-            pnpm exec tauri build --target universal-apple-darwin
           fi
+          # Build app + updater artifacts only — DMG is created separately with dmgbuild
+          pnpm exec tauri build --target universal-apple-darwin
+
+      - name: Create DMG with background using dmgbuild
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          cd apps/desktop/src-tauri
+          APP="target/universal-apple-darwin/release/bundle/macos/TradingView Alerts.app"
+          DMG_OUT="target/universal-apple-darwin/release/bundle/dmg/TradingView Alerts_${VERSION}_universal.dmg"
+          mkdir -p "$(dirname "$DMG_OUT")"
+
+          # Create dmgbuild settings on the fly
+          cat > /tmp/dmgbuild_settings.py << 'PYEOF'
+          import os
+
+          app = os.environ['APP_PATH']
+          volume_name = 'TradingView Alerts'
+          format = 'UDBZ'
+
+          # Symlink to /Applications
+          files = [app]
+          symlinks = {'Applications': '/Applications'}
+
+          # Background image
+          background = os.environ['BG_PATH']
+
+          # Icon positions
+          icon_locations = {
+              'TradingView Alerts.app': (140, 110),
+              'Applications': (380, 110),
+          }
+
+          # Window
+          window_rect = ((200, 120), (540, 360))
+          default_view = 'icon-view'
+          show_icon_preview = True
+          icon_size = 96
+          text_size = 14
+
+          # Hide extensions
+          show_ext = False
+
+          # Sign if identity available
+          sign_identity = os.environ.get('APPLE_SIGNING_IDENTITY', '')
+          PYEOF
+
+          APP_PATH="$APP" BG_PATH="dmg-background.png" \
+            dmgbuild -s /tmp/dmgbuild_settings.py "TradingView Alerts" "$DMG_OUT"
+
+          # Sign the DMG if we have a signing identity
+          SIGN_IDENTITY="${{ secrets.APPLE_SIGNING_IDENTITY }}"
+          if [ -n "$SIGN_IDENTITY" ]; then
+            codesign --sign "$SIGN_IDENTITY" "$DMG_OUT"
+          fi
+
+          ls -lh "$DMG_OUT"
 
       - name: Collect artifacts
         run: |
