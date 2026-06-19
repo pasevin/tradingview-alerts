@@ -220,7 +220,7 @@ async fn install_update(app: AppHandle) {
 /// Spawn a background task that checks for updates every 4 hours.
 fn spawn_periodic_update_check(app: AppHandle) {
     let app2 = app.clone();
-    tokio::spawn(async move {
+    tauri::async_runtime::spawn(async move {
         // Initial check 30s after launch (don't block startup).
         tokio::time::sleep(Duration::from_secs(30)).await;
         run_update_check(&app2).await;
