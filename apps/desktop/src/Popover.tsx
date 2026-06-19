@@ -65,6 +65,8 @@ export function Popover(): JSX.Element {
       onEvent<void>("update:checking", () => setUpdateState("checking")),
       onEvent<void>("update:not-available", () => setUpdateState("idle")),
       onEvent<void>("update:installing", () => setUpdateState("installing")),
+      onEvent<void>("update:installed", () => setUpdateState("idle")),
+      onEvent<string>("update:error", () => setUpdateState("idle")),
       onEvent<{ version: string; body?: string }>("update:available", (info) => {
         setUpdateInfo(info);
         setUpdateState("idle");

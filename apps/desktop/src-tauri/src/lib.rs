@@ -7,6 +7,7 @@ mod webhook;
 
 use relay::{AuthStatus, RelayClient, RelayStatus};
 use std::sync::Arc;
+use std::time::Duration;
 use store::{Alert, Settings, SettingsPatch, Store};
 use tauri::{
     menu::{Menu, MenuItem},
@@ -187,11 +188,50 @@ async fn check_for_updates(app: AppHandle) {
 #[tauri::command]
 async fn install_update(app: AppHandle) {
     let _ = app.emit("update:installing", ());
-    if let Ok(updater) = app.updater() {
-        if let Ok(Some(update)) = updater.check().await {
-            let _ = update.download_and_install(|_, _| {}, || {}).await;
+    match app.updater() {
+        Ok(updater) => match updater.check().await {
+            Ok(Some(update)) => {
+                eprintln!("[updater] downloading v{}...", update.version);
+                match update.download_and_install(|_, _| {}, || {}).await {
+                    Ok(_) => {
+                        eprintln!("[updater] installed — restarting");
+                        let _ = app.emit("update:installed", ());
+                        // Tauri's updater relaunches the app after install.
+                    }
+                    Err(e) => {
+                        eprintln!("[updater] install error: {e}");
+                        let _ = app.emit("update:error", e.to_string());
+                    }
+                }
+            }
+            Ok(None) => {
+                let _ = app.emit("update:not-available", ());
+            }
+            Err(e) => {
+                let _ = app.emit("update:error", e.to_string());
+            }
+        }
+        Err(e) => {
+            let _ = app.emit("update:error", e.to_string());
         }
     }
+}
+
+/// Spawn a background task that checks for updates every 4 hours.
+fn spawn_periodic_update_check(app: AppHandle) {
+    let app2 = app.clone();
+    tokio::spawn(async move {
+        // Initial check 30s after launch (don't block startup).
+        tokio::time::sleep(Duration::from_secs(30)).await;
+        run_update_check(&app2).await;
+        // Then every 4 hours.
+        let mut interval = tokio::time::interval(Duration::from_secs(4 * 3600));
+        interval.tick().await; // skip first (we just did it)
+        loop {
+            interval.tick().await;
+            run_update_check(&app2).await;
+        }
+    });
 }
 
 // ── Relay / auth / billing commands ───────────────────────────────────
@@ -430,6 +470,9 @@ pub fn run() {
             app.manage(Runtime(rt));
             app.manage(relay);
             app.manage(WebhookHandle::new());
+
+            // Periodic update check (every 4h, first check 30s after launch).
+            spawn_periodic_update_check(handle.clone());
 
             // Menu-bar-only: no Dock icon, no app menu.
             #[cfg(target_os = "macos")]
