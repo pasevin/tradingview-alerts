@@ -6,7 +6,7 @@
 //   WS /ws?token=…  frames: welcome | alert | entitlement | limit
 use crate::store::Store;
 use crate::webhook::dispatch_alert;
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use std::sync::Arc;
 use std::time::Duration;
@@ -532,11 +532,37 @@ impl RelayClient {
                         if auth_required {
                             this.fetch_account().await;
                         }
-                        while let Some(msg) = ws.next().await {
-                            match msg {
-                                Ok(Message::Text(txt)) => this.handle_frame(&txt).await,
-                                Ok(Message::Close(_)) | Err(_) => break,
-                                _ => {}
+                        // Heartbeat: send a Ping every 30s; if no frame
+                        // (including Pong) arrives within 90s, the connection
+                        // is treated as dead and we reconnect.
+                        let mut heartbeat = tokio::time::interval(Duration::from_secs(30));
+                        heartbeat.tick().await; // skip immediate first tick
+                        let mut last_msg = tokio::time::Instant::now();
+                        loop {
+                            tokio::select! {
+                                msg = ws.next() => match msg {
+                                    Some(Ok(Message::Text(txt))) => {
+                                        last_msg = tokio::time::Instant::now();
+                                        this.handle_frame(&txt).await;
+                                    }
+                                    Some(Ok(Message::Ping(_) | Message::Pong(_))) => {
+                                        last_msg = tokio::time::Instant::now();
+                                    }
+                                    Some(Ok(Message::Binary(_))) => {
+                                        last_msg = tokio::time::Instant::now();
+                                    }
+                                    Some(Ok(Message::Frame(_))) => {
+                                        last_msg = tokio::time::Instant::now();
+                                    }
+                                    Some(Ok(Message::Close(_))) | Some(Err(_)) | None => break,
+                                },
+                                _ = heartbeat.tick() => {
+                                    if last_msg.elapsed() > Duration::from_secs(90) {
+                                        eprintln!("[relay:ws] heartbeat timeout — reconnecting");
+                                        break;
+                                    }
+                                    let _ = ws.send(Message::Ping(Vec::new())).await;
+                                }
                             }
                             if this.state.lock().await.generation != my_gen {
                                 let _ = ws.close(None).await;
