@@ -5,7 +5,7 @@ FROM node:22-bookworm-slim AS build
 WORKDIR /app
 RUN corepack enable
 # Build context is the monorepo root (see fly.toml build.dockerfile path note).
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* tsconfig.base.json ./
 COPY packages/protocol ./packages/protocol
 COPY apps/relay ./apps/relay
 RUN pnpm install --filter @tvalert/relay... --frozen-lockfile=false
