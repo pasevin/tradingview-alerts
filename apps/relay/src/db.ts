@@ -49,8 +49,17 @@ db.exec(`
     payload     TEXT NOT NULL,
     received_at INTEGER NOT NULL
   );
-  CREATE INDEX IF NOT EXISTS idx_queue_account ON queued_alerts(account_id, received_at);
 `);
+
+// Migration: older versions of queued_alerts lacked received_at.
+// SQLite has no ADD COLUMN IF NOT EXISTS — check pragma first.
+const cols = db.prepare("PRAGMA table_info(queued_alerts)").all() as Array<{ name: string }>;
+const hasReceivedAt = cols.some((c) => c.name === "received_at");
+if (!hasReceivedAt) {
+  db.exec("ALTER TABLE queued_alerts ADD COLUMN received_at INTEGER NOT NULL DEFAULT 0");
+}
+
+db.exec(`CREATE INDEX IF NOT EXISTS idx_queue_account ON queued_alerts(account_id, received_at);`);
 
 function rowToAccount(row: Record<string, unknown>): Account {
   return {
