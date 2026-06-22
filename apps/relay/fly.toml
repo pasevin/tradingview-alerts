@@ -4,7 +4,7 @@ app = "tvalert-relay"
 primary_region = "iad"
 
 [build]
-  dockerfile = "apps/relay/Dockerfile"
+  dockerfile = "Dockerfile"
 
 [env]
   PORT = "8787"
