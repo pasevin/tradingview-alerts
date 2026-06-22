@@ -22,18 +22,16 @@ function formatTimeframe(tf: string): string {
 }
 
 function formatVolatilityMessage(obj: Record<string, unknown>): string {
-  const symbol = String(obj.symbol ?? "UNKNOWN");
   const tf = formatTimeframe(String(obj.timeframe ?? ""));
   const roc = Number(obj.roc_value ?? 0);
   const zScore = Number(obj.z_score ?? 0);
   const volRatio = obj.volume_ratio != null ? Number(obj.volume_ratio) : null;
 
   const parts: string[] = [
-    `Volatility Spike · ${symbol} · ${tf}`,
-    `ROC ${roc.toFixed(2)}% · Z-score ${zScore.toFixed(1)}σ`,
+    `${tf} · ROC ${roc.toFixed(2)}% · Z ${zScore.toFixed(1)}σ`,
   ];
   if (volRatio !== null) {
-    parts.push(`Vol ${volRatio.toFixed(1)}x avg`);
+    parts.push(`Vol ${volRatio.toFixed(1)}x`);
   }
   return parts.join(" · ");
 }
