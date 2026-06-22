@@ -11,6 +11,8 @@ COPY apps/relay ./apps/relay
 RUN pnpm install --filter @tvalert/relay... --frozen-lockfile=false
 RUN pnpm --filter @tvalert/protocol build && pnpm --filter @tvalert/relay build
 RUN pnpm --filter @tvalert/relay deploy --prod /out
+# Copy non-JS assets that pnpm deploy doesn't include
+COPY apps/relay/site.html /out/site.html
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app

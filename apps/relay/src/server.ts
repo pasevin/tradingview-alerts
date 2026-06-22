@@ -10,9 +10,48 @@
  */
 import Fastify from "fastify";
 import websocket from "@fastify/websocket";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { config, billingEnabled } from "./config.js";
 import { accounts, sessions, magicLinks, type Account } from "./db.js";
 import { hub } from "./hub.js";
+
+// ── Landing page ──────────────────────────────────────────────────────
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const GITHUB_REPO = "pasevin/tradingview-alerts";
+let cachedDownloadUrl: string | null = null;
+let cachedAt = 0;
+
+async function getDownloadUrl(): Promise<string> {
+  if (cachedDownloadUrl && Date.now() - cachedAt < 3600000) return cachedDownloadUrl;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`,
+      { headers: { "User-Agent": "tvalert-relay" } },
+    );
+    const release = (await res.json()) as { assets?: Array<{ name: string; browser_download_url: string }> };
+    const dmg = release.assets?.find((a) => a.name.endsWith(".dmg"));
+    if (dmg) {
+      cachedDownloadUrl = dmg.browser_download_url;
+      cachedAt = Date.now();
+      return cachedDownloadUrl;
+    }
+  } catch {
+    // fall through to fallback
+  }
+  return `https://github.com/${GITHUB_REPO}/releases/latest`;
+}
+
+let landingHtml: string | null = null;
+async function getLanding(): Promise<string> {
+  const downloadUrl = await getDownloadUrl();
+  if (landingHtml === null) {
+    // site.html is copied alongside the dist output in the Dockerfile
+    landingHtml = readFileSync(join(__dirname, "..", "site.html"), "utf-8");
+  }
+  return landingHtml.replaceAll("__DOWNLOAD_URL__", downloadUrl);
+}
 import { parseAlert } from "./alert.js";
 import { createCheckout, createPortal, handleWebhook } from "./billing.js";
 import { sendMagicLink } from "./mail.js";
@@ -39,6 +78,11 @@ function requireAccount(req: {
   const token = bearer(req);
   return token ? accounts.bySessionToken(token) : undefined;
 }
+
+// ── Landing page ──────────────────────────────────────────────────────
+app.get("/", async (_req, reply) => {
+  reply.type("text/html").send(await getLanding());
+});
 
 // ── Liveness ──────────────────────────────────────────────────────────
 app.get("/health", () => ({
