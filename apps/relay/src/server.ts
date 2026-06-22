@@ -61,9 +61,23 @@ app.get<{ Querystring: { token?: string } }>("/auth/verify", (req, reply) => {
   const email = req.query.token
     ? magicLinks.consumeByLink(req.query.token)
     : undefined;
-  if (!email) return reply.code(400).type("text/html").send("<h1>Link expired</h1>");
+  if (!email) {
+    return reply.code(400).type("text/html").send(
+      `<!doctype html><html><head><meta charset="utf-8"><title>Link expired</title>` +
+      `<style>body{font-family:-apple-system,system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:#f5f5f7;color:#1d1d1f}` +
+      `.card{background:#fff;padding:40px 48px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.08);text-align:center;max-width:360px}` +
+      `h1{font-size:20px;margin:0 0 8px}p{color:#6e6e73;line-height:1.5;margin:0}</style></head>` +
+      `<body><div class="card"><h1>Link expired</h1><p>Please request a new sign-in link from the app.</p></div></body></html>`,
+    );
+  }
   accounts.upsertByEmail(email);
-  return reply.type("text/html").send("<h1>Signed in — return to the app.</h1>");
+  return reply.type("text/html").send(
+    `<!doctype html><html><head><meta charset="utf-8"><title>Signed in</title>` +
+    `<style>body{font-family:-apple-system,system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:#f5f5f7;color:#1d1d1f}` +
+    `.card{background:#fff;padding:40px 48px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,.08);text-align:center;max-width:360px}` +
+    `h1{font-size:20px;margin:0 0 8px}p{color:#6e6e73;line-height:1.5;margin:0}</style></head>` +
+    `<body><div class="card"><h1>✅ You're signed in</h1><p>You can close this tab and return to TradingView Alerts.</p></div></body></html>`,
+  );
 });
 
 app.post<{ Body: { pollToken?: string } }>("/auth/poll", (req, reply) => {
