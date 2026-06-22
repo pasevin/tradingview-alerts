@@ -133,7 +133,14 @@ jobs:
             -name "*.tar.gz" -exec cp {} dist-artifacts/ \;
           find apps/desktop/src-tauri/target/universal-apple-darwin/release/bundle/macos \
             -name "*.tar.gz.sig" -exec cp {} dist-artifacts/ \;
-          ls -lh dist-artifacts/
+          # Rename any files with spaces to use dots (Tauri uses productName with space).
+          # GitHub release asset URLs break on spaces — the updater can't download them.
+          cd dist-artifacts
+          for f in *\ *; do
+            [ -e "$f" ] || continue
+            mv "$f" "${f// /.}"
+          done
+          ls -lh
 
       - name: Generate latest.json
         run: |

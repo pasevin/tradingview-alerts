@@ -19,6 +19,7 @@ import {
   type ServerStatus,
   type RelayStatus,
   type AuthStatus,
+  type AppInfo,
   ALERT_SOUNDS,
 } from "./api.js";
 import { getLogoUrl, onLogoReady } from "./logoCache.js";
@@ -44,6 +45,7 @@ export function Popover(): JSX.Element {
   const [auth, setAuth] = useState<AuthStatus | null>(null);
   const [updateInfo, setUpdateInfo] = useState<{ version: string; body?: string } | null>(null);
   const [updateState, setUpdateState] = useState<"idle" | "checking" | "installing">("idle");
+  const [appInfo, setAppInfo] = useState<AppInfo | null>(null);
 
   useEffect(() => {
     api.listAlerts().then(setAlerts);
@@ -51,6 +53,7 @@ export function Popover(): JSX.Element {
     api.getServerStatus().then(setStatus);
     api.relayGetStatus().then(setRelay);
     api.authGetStatus().then(setAuth);
+    api.getAppInfo().then(setAppInfo);
   }, []);
 
   useEffect(() => {
@@ -99,6 +102,11 @@ export function Popover(): JSX.Element {
           setRelay={setRelay}
           auth={auth}
           setAuth={setAuth}
+          appInfo={appInfo}
+          updateInfo={updateInfo}
+          updateState={updateState}
+          onInstallUpdate={() => { setUpdateState("installing"); api.installUpdate(); }}
+          onCheckUpdates={() => { setUpdateState("checking"); api.checkForUpdates(); }}
           onBack={() => setView("main")}
         />
       )}
@@ -300,9 +308,14 @@ function MainView({
         />
         <div className="border-t border-white/8" />
         <ActionRow
-          icon={<Icon name="arrow.up.circle" className="text-white/50" />}
-          label={updateState === "checking" ? "Checking…" : "Check for Updates…"}
-          onClick={() => api.checkForUpdates()}
+          icon={<Icon name="arrow.up.circle" className={updateInfo ? "text-blue-400" : "text-white/50"} />}
+          label={
+            updateState === "checking" ? "Checking…" :
+            updateState === "installing" ? "Installing…" :
+            updateInfo ? `v${updateInfo.version} available` :
+            "Check for Updates…"
+          }
+          onClick={updateInfo ? onInstallUpdate : () => api.checkForUpdates()}
         />
         <div className="border-t border-white/8" />
         <ActionRow
@@ -518,6 +531,11 @@ function SettingsView({
   setRelay,
   auth,
   setAuth,
+  appInfo,
+  updateInfo,
+  updateState,
+  onInstallUpdate,
+  onCheckUpdates,
   onBack,
 }: {
   settings: Settings | null;
@@ -527,6 +545,11 @@ function SettingsView({
   setRelay: (r: RelayStatus) => void;
   auth: AuthStatus | null;
   setAuth: (a: AuthStatus) => void;
+  appInfo: AppInfo | null;
+  updateInfo: { version: string; body?: string } | null;
+  updateState: "idle" | "checking" | "installing";
+  onInstallUpdate: () => void;
+  onCheckUpdates: () => void;
   onBack: () => void;
 }): JSX.Element {
   const [portInput, setPortInput] = useState("");
@@ -690,6 +713,49 @@ function SettingsView({
             >Save</button>
           </div>
         </Section>
+
+        {/* Update section */}
+        <Section title="Updates">
+          {updateInfo && (
+            <div className="mx-3 mb-2 flex items-center justify-between rounded-md bg-blue-500/10 px-2.5 py-2">
+              <div className="flex items-center gap-2">
+                <Icon name="arrow.up.circle" className="text-blue-400" />
+                <span className="text-[12px] text-blue-300">
+                  v{updateInfo.version} available
+                </span>
+              </div>
+              <button
+                onClick={onInstallUpdate}
+                disabled={updateState === "installing"}
+                className="rounded bg-blue-500/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-blue-500 disabled:opacity-50"
+              >
+                {updateState === "installing" ? "Installing…" : "Update Now"}
+              </button>
+            </div>
+          )}
+          <ActionRow
+            icon={<Icon name="arrow.up.circle" className="text-white/50" />}
+            label={updateState === "checking" ? "Checking…" : "Check for Updates…"}
+            onClick={onCheckUpdates}
+          />
+        </Section>
+
+        {/* Version footer */}
+        <div className="px-3 py-3 text-center">
+          <div className="text-[11px] text-white/30">
+            TradingView Alerts v{appInfo?.version ?? "—"}
+          </div>
+          {appInfo?.lastUpdatedAt && (
+            <div className="mt-0.5 text-[10px] text-white/20">
+              Updated {formatTimestamp(appInfo.lastUpdatedAt)}
+            </div>
+          )}
+          {appInfo?.lastUpdateCheck && !appInfo.lastUpdatedAt && (
+            <div className="mt-0.5 text-[10px] text-white/20">
+              Last checked {formatTimestamp(appInfo.lastUpdateCheck)}
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
@@ -806,4 +872,20 @@ function AccountSection({
       {linkStatus.kind === "error" && <div className="mt-1 text-[11px] text-red-400">{linkStatus.message}</div>}
     </div>
   );
+}
+
+function formatTimestamp(ms: number): string {
+  const d = new Date(ms);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHr = Math.floor(diffMin / 60);
+  const diffDay = Math.floor(diffHr / 24);
+
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHr < 24) return `${diffHr}h ago`;
+  if (diffDay === 1) return "yesterday";
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

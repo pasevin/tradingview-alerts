@@ -23,6 +23,9 @@ pub struct Settings {
     pub pro: bool,
     // Alert sound
     pub alert_sound: String,
+    // Update tracking
+    pub last_update_check: Option<u64>,
+    pub last_updated_at: Option<u64>,
 }
 
 impl Default for Settings {
@@ -39,6 +42,8 @@ impl Default for Settings {
             account_email: None,
             pro: false,
             alert_sound: "Glass".to_string(),
+            last_update_check: None,
+            last_updated_at: None,
         }
     }
 }
@@ -187,6 +192,18 @@ impl Store {
         s.pro = pro;
         self.persist_settings(&s);
         s.clone()
+    }
+
+    pub fn set_last_update_check(&self, ts: u64) {
+        let mut s = self.settings.lock().unwrap();
+        s.last_update_check = Some(ts);
+        self.persist_settings(&s);
+    }
+
+    pub fn set_last_updated_at(&self, ts: u64) {
+        let mut s = self.settings.lock().unwrap();
+        s.last_updated_at = Some(ts);
+        self.persist_settings(&s);
     }
 
     // ── Alert API ─────────────────────────────────────────────────────

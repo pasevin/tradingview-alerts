@@ -158,6 +158,11 @@ fn play_sound(name: String) {
 /// Called from both the tray menu and the `check_for_updates` command.
 async fn run_update_check(app: &AppHandle) {
     let _ = app.emit("update:checking", ());
+    // Record the check timestamp.
+    {
+        let store = app.state::<std::sync::Arc<Store>>();
+        store.set_last_update_check(now_ms());
+    }
     match app.updater() {
         Ok(updater) => match updater.check().await {
             Ok(Some(update)) => {
@@ -180,6 +185,25 @@ async fn run_update_check(app: &AppHandle) {
     }
 }
 
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppInfo {
+    version: String,
+    last_update_check: Option<u64>,
+    last_updated_at: Option<u64>,
+}
+
+#[tauri::command]
+fn get_app_info(app: AppHandle) -> AppInfo {
+    let store = app.state::<std::sync::Arc<Store>>();
+    let settings = store.get_settings();
+    AppInfo {
+        version: app.package_info().version.to_string(),
+        last_update_check: settings.last_update_check,
+        last_updated_at: settings.last_updated_at,
+    }
+}
+
 #[tauri::command]
 async fn check_for_updates(app: AppHandle) {
     run_update_check(&app).await;
@@ -194,9 +218,19 @@ async fn install_update(app: AppHandle) {
                 eprintln!("[updater] downloading v{}...", update.version);
                 match update.download_and_install(|_, _| {}, || {}).await {
                     Ok(_) => {
-                        eprintln!("[updater] installed — restarting");
+                        eprintln!("[updater] installed — restarting now");
+                        // Record the update timestamp.
+                        {
+                            let store = app.state::<std::sync::Arc<Store>>();
+                            store.set_last_updated_at(now_ms());
+                        }
                         let _ = app.emit("update:installed", ());
-                        // Tauri's updater relaunches the app after install.
+                        // Restart the app to complete the update.
+                        // Tauri's download_and_install replaces the bundle but
+                        // does not automatically relaunch — we must do it.
+                        match app.restart() {
+                            // restart() never returns on success
+                        }
                     }
                     Err(e) => {
                         eprintln!("[updater] install error: {e}");
@@ -210,22 +244,22 @@ async fn install_update(app: AppHandle) {
             Err(e) => {
                 let _ = app.emit("update:error", e.to_string());
             }
-        }
+        },
         Err(e) => {
             let _ = app.emit("update:error", e.to_string());
         }
     }
 }
 
-/// Spawn a background task that checks for updates every 4 hours.
+/// Spawn a background task that checks for updates every 1 hour.
 fn spawn_periodic_update_check(app: AppHandle) {
     let app2 = app.clone();
     tauri::async_runtime::spawn(async move {
-        // Initial check 30s after launch (don't block startup).
-        tokio::time::sleep(Duration::from_secs(30)).await;
+        // Initial check 10s after launch (don't block startup).
+        tokio::time::sleep(Duration::from_secs(10)).await;
         run_update_check(&app2).await;
-        // Then every 4 hours.
-        let mut interval = tokio::time::interval(Duration::from_secs(4 * 3600));
+        // Then every 1 hour.
+        let mut interval = tokio::time::interval(Duration::from_secs(3600));
         interval.tick().await; // skip first (we just did it)
         loop {
             interval.tick().await;
@@ -426,6 +460,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_settings,
             set_settings,
+            get_app_info,
             list_alerts,
             mark_all_read,
             delete_alert,

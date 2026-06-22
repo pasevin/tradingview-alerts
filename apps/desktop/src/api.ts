@@ -61,10 +61,17 @@ export const ALERT_SOUNDS = [
 
 export type AlertSound = (typeof ALERT_SOUNDS)[number];
 
+export interface AppInfo {
+  version: string;
+  lastUpdateCheck: number | null;
+  lastUpdatedAt: number | null;
+}
+
 export const api = {
   getSettings: () => invoke<Settings>("get_settings"),
   setSettings: (patch: Partial<Settings>) =>
     invoke<Settings>("set_settings", { patch }),
+  getAppInfo: () => invoke<AppInfo>("get_app_info"),
   listAlerts: () => invoke<Alert[]>("list_alerts"),
   markAllRead: () => invoke<Alert[]>("mark_all_read"),
   deleteAlert: (id: string) => invoke<Alert[]>("delete_alert", { id }),
