@@ -9,6 +9,7 @@ use relay::{AuthStatus, RelayClient, RelayStatus};
 use std::sync::Arc;
 use std::time::Duration;
 use store::{Alert, Settings, SettingsPatch, Store};
+use webhook::now_ms;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent},
