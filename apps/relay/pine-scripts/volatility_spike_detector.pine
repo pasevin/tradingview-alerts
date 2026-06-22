@@ -1,0 +1,120 @@
+//@version=5
+// ┌─────────────────────────────────────────────────────────────┐
+// │  Volatility Spike Detector                                  │
+// │  Detects sudden price movements using ROC + Z-score, with   │
+// │  optional volume confirmation. Fires a webhook alert with   │
+// │  a structured JSON payload prefixed VOLATILITY_SPIKE.       │
+// │                                                             │
+// │  Architecture: Pine Script → TV cloud → webhook → relay     │
+// │  See: Projects/TradingView Alerts/Feature ideas/            │
+// │       Volatility spike detector.md                          │
+// └─────────────────────────────────────────────────────────────┘
+indicator("Volatility Spike Detector", shorttitle="VOL SPIKE", overlay=false)
+
+// ═══════════════════════════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════════════════════════
+
+grp_detect = "Detection"
+windowLen       = input.int(3, "Rolling window (bars)", minval=1, group=grp_detect)
+rocThreshold    = input.float(1.0, "ROC trigger (%)", step=0.1, minval=0, group=grp_detect)
+zScoreThreshold = input.float(2.0, "Z-score threshold (σ)", step=0.5, minval=0, group=grp_detect)
+baselineLen     = input.int(60, "Baseline window (bars)", minval=10, group=grp_detect, tooltip="On 1m chart, 60 bars = 1h baseline")
+
+grp_vol = "Volume confirmation"
+useVolConf = input.bool(false, "Require volume confirmation", group=grp_vol)
+volMult    = input.float(1.5, "Volume multiplier (x average)", step=0.5, minval=0, group=grp_vol)
+
+grp_cool = "Cooldown"
+cooldownBars = input.int(0, "Cooldown between alerts (bars)", minval=0, group=grp_cool)
+
+grp_trig = "Trigger logic"
+requireBoth = input.bool(false, "Require BOTH ROC AND Z-score (default: either triggers)", group=grp_trig)
+
+// ═══════════════════════════════════════════════════════════════
+// CALCULATIONS
+// ═══════════════════════════════════════════════════════════════
+
+// ROC: percentage price change over rolling window — intuitive "% move in N bars"
+roc = nz(ta.roc(close, windowLen))
+
+// Z-score of bar-to-bar returns vs baseline.
+// Regime-adaptive: auto-calibrates what counts as "abnormal" based on recent volatility.
+// In low-vol, a 2% move might be 5 sigma; in high-vol, the same 2% is just 1 sigma.
+returns = nz(ta.change(close))
+meanRet = nz(ta.sma(returns, baselineLen))
+stdRet  = nz(ta.stdev(returns, baselineLen))
+zScore  = stdRet > 0 ? (returns - meanRet) / stdRet : 0
+
+// Volume confirmation: filters out low-conviction moves (noise without follow-through)
+avgVol       = nz(ta.sma(volume, windowLen))
+volumeRatio  = avgVol > 0 ? nz(volume) / avgVol : 0
+volConfirmed = useVolConf ? (volumeRatio >= volMult) : true
+
+// Trigger conditions
+rocTrigger    = math.abs(roc) >= rocThreshold
+zScoreTrigger = math.abs(zScore) >= zScoreThreshold
+spikeFired    = requireBoth ? (rocTrigger and zScoreTrigger) : (rocTrigger or zScoreTrigger)
+spikeDetected = spikeFired and volConfirmed
+
+// Cooldown: prevents alert spam when volatility persists across multiple bars
+var int lastAlertBar = na
+cooldownPassed  = na(lastAlertBar) or (bar_index - lastAlertBar) >= cooldownBars
+alertCondition  = spikeDetected and cooldownPassed
+
+// ═══════════════════════════════════════════════════════════════
+// VISUALIZATION
+// ═══════════════════════════════════════════════════════════════
+
+// ROC histogram — green for upward moves, red for downward
+plot(roc, "ROC (%)", color=roc >= 0 ? color.new(color.green, 50) : color.new(color.red, 50), style=plot.style_columns)
+
+// Z-score line — adaptive statistical outlier indicator
+plot(zScore, "Z-score", color=color.new(color.orange, 0), linewidth=2)
+
+// Reference lines
+hline(0, "Zero", color=color.new(color.gray, 80))
+hline(zScoreThreshold, "Z +threshold", color=color.new(color.gray, 80), linestyle=hline.style_dashed)
+hline(-zScoreThreshold, "Z -threshold", color=color.new(color.gray, 80), linestyle=hline.style_dashed)
+
+// Spike markers and background highlight
+plotshape(alertCondition, "Volatility Spike", shape.xcross, location.top, color=color.yellow, size=size.small)
+bgcolor(alertCondition ? color.new(color.yellow, 85) : na, title="Spike Background")
+
+// ═══════════════════════════════════════════════════════════════
+// ALERT PAYLOAD
+// ═══════════════════════════════════════════════════════════════
+
+// Zero-pad a number to 2 digits for ISO 8601 timestamp components
+f_pad2(series int n) =>
+    n < 10 ? "0" + str.tostring(n) : str.tostring(n)
+
+// Build an ISO 8601 UTC timestamp from a UNIX millisecond timestamp.
+// Uses calendar functions with "UTC" timezone for portable, timezone-agnostic output.
+f_iso8601(series int t) =>
+    str.tostring(year(t, "UTC")) + "-" + f_pad2(month(t, "UTC")) + "-" + f_pad2(dayofmonth(t, "UTC")) + "T" + f_pad2(hour(t, "UTC")) + ":" + f_pad2(minute(t, "UTC")) + ":00Z"
+
+// Build a JSON object for webhook consumption.
+// Relay parses the VOLATILITY_SPIKE prefix to route the payload.
+f_jsonPayload(series float rocVal, series float zVal, series float volRatio, series int cdRemaining) =>
+    ts = f_iso8601(time)
+    parts = array.new_string(0)
+    array.push(parts, "\"symbol\":\"" + syminfo.ticker + "\"")
+    array.push(parts, "\"timeframe\":\"" + timeframe.period + "\"")
+    array.push(parts, "\"roc_value\":" + str.tostring(rocVal, "#.####"))
+    array.push(parts, "\"z_score\":" + str.tostring(zVal, "#.####"))
+    array.push(parts, "\"volume_ratio\":" + str.tostring(volRatio, "#.####"))
+    array.push(parts, "\"timestamp\":\"" + ts + "\"")
+    array.push(parts, "\"cooldown_remaining\":" + str.tostring(cdRemaining, "#"))
+    "{" + array.join(parts, ",") + "}"
+
+// Static alertcondition for basic non-webhook alerts (selectable in TV Create Alert dialog)
+alertcondition(alertCondition, "Volatility Spike", "VOLATILITY_SPIKE detected")
+
+// Dynamic alert with JSON webhook payload — fires once per bar when condition is met.
+// Note: alert.freq_once_per_bar provides intra-bar alerts but requires TradingView Pro+.
+// On free/essential plans, use alert.freq_once_per_bar_close instead.
+if alertCondition
+    lastAlertBar := bar_index
+    payload = f_jsonPayload(roc, zScore, volumeRatio, cooldownBars)
+    alert("VOLATILITY_SPIKE " + payload, alert.freq_once_per_bar)
