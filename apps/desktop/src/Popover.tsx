@@ -103,10 +103,6 @@ export function Popover(): JSX.Element {
           auth={auth}
           setAuth={setAuth}
           appInfo={appInfo}
-          updateInfo={updateInfo}
-          updateState={updateState}
-          onInstallUpdate={() => { setUpdateState("installing"); api.installUpdate(); }}
-          onCheckUpdates={() => { setUpdateState("checking"); api.checkForUpdates(); }}
           onBack={() => setView("main")}
         />
       )}
@@ -532,10 +528,6 @@ function SettingsView({
   auth,
   setAuth,
   appInfo,
-  updateInfo,
-  updateState,
-  onInstallUpdate,
-  onCheckUpdates,
   onBack,
 }: {
   settings: Settings | null;
@@ -546,10 +538,6 @@ function SettingsView({
   auth: AuthStatus | null;
   setAuth: (a: AuthStatus) => void;
   appInfo: AppInfo | null;
-  updateInfo: { version: string; body?: string } | null;
-  updateState: "idle" | "checking" | "installing";
-  onInstallUpdate: () => void;
-  onCheckUpdates: () => void;
   onBack: () => void;
 }): JSX.Element {
   const [portInput, setPortInput] = useState("");
