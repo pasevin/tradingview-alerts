@@ -5,7 +5,7 @@
 //   /register {token}, /me {email,pro,hookUrl}, /billing/checkout, /billing/portal,
 //   WS /ws?token=…  frames: welcome | alert | entitlement | limit
 use crate::store::Store;
-use crate::webhook::dispatch_alert;
+use crate::webhook::{dispatch_alert, dispatch_parsed_alert};
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use std::sync::Arc;
