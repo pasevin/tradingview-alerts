@@ -14,7 +14,7 @@ primary_region = "iad"
   PAYMENT_PROVIDER = "stripe"
 
 [[mounts]]
-  source = "tvalert_data"
+  source = "alert_watcher_data"
   destination = "/data"
 
 [http_service]
