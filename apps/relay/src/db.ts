@@ -2,10 +2,14 @@
  * SQLite persistence (better-sqlite3, synchronous). One file on a mounted
  * volume is sufficient for launch; the schema is deliberately small so a later
  * move to LiteFS/Postgres is mechanical.
+ *
+ * Schema changes are handled by the migration system in migrations.ts.
+ * Never use CREATE TABLE or ALTER TABLE directly here — add a migration instead.
  */
 import Database from "better-sqlite3";
 import { nanoid } from "nanoid";
 import { config } from "./config.js";
+import { runMigrations } from "./migrations.js";
 import type { Alert } from "@tvalert/protocol";
 
 export interface Account {
@@ -19,47 +23,8 @@ export interface Account {
 const db = new Database(config.dbPath);
 db.pragma("journal_mode = WAL");
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS accounts (
-    id                TEXT PRIMARY KEY,
-    email             TEXT UNIQUE NOT NULL,
-    hook_token        TEXT UNIQUE NOT NULL,
-    pro               INTEGER NOT NULL DEFAULT 0,
-    stripe_customer_id TEXT,
-    created_at        INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS sessions (
-    token      TEXT PRIMARY KEY,
-    account_id TEXT NOT NULL REFERENCES accounts(id),
-    created_at INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS magic_links (
-    poll_token TEXT PRIMARY KEY,
-    link_token TEXT UNIQUE NOT NULL,
-    email      TEXT NOT NULL,
-    consumed   INTEGER NOT NULL DEFAULT 0,
-    created_at INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS queued_alerts (
-    id          TEXT PRIMARY KEY,
-    account_id  TEXT NOT NULL REFERENCES accounts(id),
-    payload     TEXT NOT NULL,
-    received_at INTEGER NOT NULL
-  );
-`);
-
-// Migration: older versions of queued_alerts lacked received_at.
-// SQLite has no ADD COLUMN IF NOT EXISTS — check pragma first.
-const cols = db.prepare("PRAGMA table_info(queued_alerts)").all() as Array<{ name: string }>;
-const hasReceivedAt = cols.some((c) => c.name === "received_at");
-if (!hasReceivedAt) {
-  db.exec("ALTER TABLE queued_alerts ADD COLUMN received_at INTEGER NOT NULL DEFAULT 0");
-}
-
-db.exec(`CREATE INDEX IF NOT EXISTS idx_queue_account ON queued_alerts(account_id, received_at);`);
+// Run all pending schema migrations before any queries.
+runMigrations(db);
 
 function rowToAccount(row: Record<string, unknown>): Account {
   return {
