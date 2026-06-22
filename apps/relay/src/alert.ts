@@ -55,6 +55,11 @@ export function parseAlert(rawBody: string): Alert {
       if (prefix === "VOLATILITY_SPIKE") {
         symbol = (obj.symbol as string) ?? undefined;
         message = formatVolatilityMessage(obj);
+        // Build clean JSON for the app's local parser (which reads `raw` and
+        // re-parses it). Include `message` so the app displays it directly
+        // instead of the raw payload.
+        const cleanRaw = JSON.stringify({ ...obj, message, ticker: symbol });
+        return { id: nanoid(), receivedAt: Date.now(), symbol, message, raw: cleanRaw };
       } else {
         // Unknown prefix — extract best-effort fields from JSON
         symbol = (obj.symbol as string) ?? (obj.ticker as string) ?? undefined;
