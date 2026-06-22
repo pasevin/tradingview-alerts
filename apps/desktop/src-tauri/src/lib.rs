@@ -162,7 +162,7 @@ async fn run_update_check(app: &AppHandle) {
     // Record the check timestamp.
     {
         let store = app.state::<std::sync::Arc<Store>>();
-        store.set_last_update_check(now_ms());
+        store.set_last_update_check(now_ms() as u64);
     }
     match app.updater() {
         Ok(updater) => match updater.check().await {
@@ -223,7 +223,7 @@ async fn install_update(app: AppHandle) {
                         // Record the update timestamp.
                         {
                             let store = app.state::<std::sync::Arc<Store>>();
-                            store.set_last_updated_at(now_ms());
+                            store.set_last_updated_at(now_ms() as u64);
                         }
                         let _ = app.emit("update:installed", ());
                         // Restart the app to complete the update.
