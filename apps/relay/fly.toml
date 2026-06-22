@@ -1,6 +1,6 @@
 # Fly.io deployment for the hosted relay.
 # Single always-on machine: persistent WebSockets + SQLite-on-volume need it.
-app = "tvalert-relay"
+app = "alert-watcher-relay"
 primary_region = "iad"
 
 [build]
@@ -9,7 +9,7 @@ primary_region = "iad"
 [env]
   PORT = "8787"
   DB_PATH = "/data/relay.db"
-  PUBLIC_BASE_URL = "https://tvalert-relay.fly.dev"
+  PUBLIC_BASE_URL = "https://alert-watcher-relay.fly.dev"
   REQUIRE_AUTH = "true"
   PAYMENT_PROVIDER = "stripe"
 
