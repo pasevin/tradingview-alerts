@@ -618,7 +618,15 @@ impl RelayClient {
                 }
             }
             "alert" => {
-                if let Some(raw) = v.get("raw").and_then(|x| x.as_str()) {
+                // Prefer the nested alert object (new protocol) which carries
+                // relay-parsed fields (symbol, message, raw). Fall back to
+                // top-level raw (legacy relay) for backward compatibility.
+                if let Some(alert_obj) = v.get("alert").and_then(|x| x.as_object()) {
+                    let raw = alert_obj.get("raw").and_then(|x| x.as_str()).unwrap_or("");
+                    let message = alert_obj.get("message").and_then(|x| x.as_str());
+                    let symbol = alert_obj.get("symbol").and_then(|x| x.as_str());
+                    dispatch_parsed_alert(&self.app, raw, "cloud", message, symbol);
+                } else if let Some(raw) = v.get("raw").and_then(|x| x.as_str()) {
                     dispatch_alert(&self.app, raw, "cloud");
                 }
             }

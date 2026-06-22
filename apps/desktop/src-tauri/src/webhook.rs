@@ -133,15 +133,40 @@ fn format_price(p: f64) -> String {
 /// Full pipeline: parse, store, notify, beep, emit to UI, refresh tray.
 pub fn dispatch_alert(app: &AppHandle, raw: &str, source: &str) {
     let parsed = parse_alert(raw);
+    dispatch_parsed_alert(app, raw, source, Some(&parsed.message), parsed.ticker.as_deref());
+}
+
+/// Dispatch an alert where the relay has already parsed the message and symbol.
+/// Skips local re-parsing so the relay's formatting is preserved.
+pub fn dispatch_parsed_alert(
+    app: &AppHandle,
+    raw: &str,
+    source: &str,
+    message: Option<&str>,
+    symbol: Option<&str>,
+) {
     let store = app.state::<Arc<Store>>();
     let settings = store.get_settings();
+
+    // If the relay provided message/symbol, use them directly.
+    // Otherwise fall back to local parsing of the raw body.
+    let (ticker, display_message) = if message.is_some() || symbol.is_some() {
+        let ticker = symbol.map(|s| s.to_string());
+        let msg = message.unwrap_or(raw.trim()).to_string();
+        // Try to extract ticker from message if not provided
+        let ticker = ticker.or_else(|| extract_symbol(&msg));
+        (ticker, msg)
+    } else {
+        let parsed = parse_alert(raw);
+        (parsed.ticker, parsed.message)
+    };
 
     let alert = Alert {
         id: uuid::Uuid::new_v4().to_string(),
         received_at: now_ms(),
-        ticker: parsed.ticker.clone(),
-        message: parsed.message.clone(),
-        price: parsed.price.clone(),
+        ticker: ticker.clone(),
+        message: display_message.clone(),
+        price: None,
         raw: raw.trim().to_string(),
         read: false,
     };
@@ -155,7 +180,7 @@ pub fn dispatch_alert(app: &AppHandle, raw: &str, source: &str) {
     let unread = store.unread_count();
 
     if settings.notifications {
-        let title = match &parsed.ticker {
+        let title = match &ticker {
             Some(t) => format!("Alert: {t}"),
             None => "TradingView Alert".to_string(),
         };
@@ -163,7 +188,7 @@ pub fn dispatch_alert(app: &AppHandle, raw: &str, source: &str) {
             .notification()
             .builder()
             .title(title)
-            .body(&parsed.message)
+            .body(&display_message)
             .show();
     }
 
