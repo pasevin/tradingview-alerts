@@ -28,7 +28,7 @@ function formatVolatilityMessage(obj: Record<string, unknown>): string {
   const volRatio = obj.volume_ratio != null ? Number(obj.volume_ratio) : null;
 
   const parts: string[] = [
-    `${tf} · ROC ${roc.toFixed(2)}% · Z ${zScore.toFixed(1)}σ`,
+    `Vol Spike · ${tf} · ROC ${roc.toFixed(2)}% · Z ${zScore.toFixed(1)}σ`,
   ];
   if (volRatio !== null) {
     parts.push(`Vol ${volRatio.toFixed(1)}x`);
