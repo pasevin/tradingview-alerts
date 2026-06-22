@@ -714,32 +714,6 @@ function SettingsView({
           </div>
         </Section>
 
-        {/* Update section */}
-        <Section title="Updates">
-          {updateInfo && (
-            <div className="mx-3 mb-2 flex items-center justify-between rounded-md bg-blue-500/10 px-2.5 py-2">
-              <div className="flex items-center gap-2">
-                <Icon name="arrow.up.circle" className="text-blue-400" />
-                <span className="text-[12px] text-blue-300">
-                  v{updateInfo.version} available
-                </span>
-              </div>
-              <button
-                onClick={onInstallUpdate}
-                disabled={updateState === "installing"}
-                className="rounded bg-blue-500/80 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-blue-500 disabled:opacity-50"
-              >
-                {updateState === "installing" ? "Installing…" : "Update Now"}
-              </button>
-            </div>
-          )}
-          <ActionRow
-            icon={<Icon name="arrow.up.circle" className="text-white/50" />}
-            label={updateState === "checking" ? "Checking…" : "Check for Updates…"}
-            onClick={onCheckUpdates}
-          />
-        </Section>
-
         {/* Version footer */}
         <div className="px-3 py-3 text-center">
           <div className="text-[11px] text-white/30">
