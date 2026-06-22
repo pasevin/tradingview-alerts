@@ -46,7 +46,13 @@ class ConnectionHub {
    * it is persisted so it survives until the app reconnects.
    */
   deliverAlert(accountId: string, alert: Alert): void {
-    const sent = this.send(accountId, { type: "alert", alert });
+    // Send both nested (protocol) and flat (legacy app) formats for compatibility.
+    // Old app clients read v.get("raw") at top level; new clients read v.alert.
+    const sent = this.send(accountId, {
+      type: "alert",
+      alert,
+      raw: alert.raw,
+    } as unknown as ServerMessage);
     if (!sent) queue.push(accountId, alert);
   }
 
